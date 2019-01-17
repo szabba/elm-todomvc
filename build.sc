@@ -19,16 +19,24 @@ object backend extends ScalaModule with ScalafmtModule {
 
 }
 
-object frontend extends ElmModule {
-}
+object frontend extends ElmModule
 
 trait ElmModule extends mill.Module with TaskModule {
 
   override def defaultCommandName = "compile"
 
   def compile = T {
-    val arguments = List("elm", "make", "--output=elm.js", "src/Main.elm")
-    val env = Map.empty[String, String]
-    Jvm.baseInteractiveSubprocess(arguments, env, millSourcePath)
+    val srcs = allSources()
+    val commandPrefix = Seq("elm", "make", "--output=elm.js")
+    val elmFiles = srcs.map(_.path.relativeTo(millSourcePath).toString)
+    val args = commandPrefix ++ elmFiles
+    Jvm.baseInteractiveSubprocess(args, Map.empty, millSourcePath)
+  }
+
+  def allSources = T.sources {
+    os.walk(millSourcePath)
+      .filter(_.toString.endsWith(".elm"))
+      .map(x => x)
+      .map(PathRef(_))
   }
 }
