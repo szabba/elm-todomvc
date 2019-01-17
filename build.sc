@@ -8,6 +8,19 @@ object backend extends ScalaModule with ScalafmtModule {
 
   override def scalaVersion = "2.12.8"
 
+  override def scalacOptions = Seq("-Ypartial-unification")
+
+  override def mainClass = Some("com.github.szabba.todomvc.replicated.Main")
+
+  override def ivyDeps = Agg(
+    ivy"org.http4s::http4s-server::${versions.http4s}",
+    ivy"org.http4s::http4s-dsl::${versions.http4s}",
+    ivy"org.http4s::http4s-blaze-server::${versions.http4s}")
+
+  object versions {
+    val http4s = "0.18.21"
+  }
+
   object test extends Tests {
 
     override def testFrameworks = Seq("org.scalatest.tools.Framework")
