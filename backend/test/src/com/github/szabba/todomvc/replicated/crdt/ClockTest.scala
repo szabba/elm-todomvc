@@ -1,36 +1,57 @@
 package com.github.szabba.todomvc.replicated.crdt
 
-import com.github.szabba.todomvc.replicated.BaseTest
+import com.github.szabba.todomvc.replicated.algebra.{JoinSemilattice, JoinSemilatticeTest}
 import org.scalacheck.Arbitrary
 
-class ClockTest extends BaseTest {
+class ClockTest extends JoinSemilatticeTest[Clock] {
 
-  import ClockTest._
+  override val joinSemilattice: JoinSemilattice[Clock] = Clock.joinSemilattice
+  override implicit val arb: Arbitrary[Clock] = ClockTest.arbitraryClock
+
+  import ClockTest.{Tick, arbitraryTick}
 
   property("empty clock converts to an empty map") {
-    assert ( Clock.empty.toMap.isEmpty )
+    assert {
+      Clock.empty.toMap.isEmpty
+    }
   }
 
   property("never has negative ticks for any node") {
     forAll { clock: Clock =>
-      clock.toMap.foreach { case (nodeID, ticks) =>
-        assert ( ticks >= 0, nodeID )
+
+      clock.toMap.foreach { case (node, ticks) =>
+        withClue("at ${node}:") {
+          assert {
+            ticks >= 0
+          }
+        }
       }
     }
   }
 
   property("is (partial order) equal to itself") {
     forAll { clock: Clock =>
-      assert(clock.comparePartial(clock) == PartialOrder.Equal)
+      assert {
+        clock.comparePartial(clock) == PartialOrder.Equal
+      }
     }
   }
 
   property("clock with an extra tick is the newer of two") {
     forAll { (clock: Clock, extraTick: Tick) =>
-      val newerClock = clock.tick(extraTick.atNode)
+      val newerClock = clock.advanceAt(extraTick.atNode)
 
-      assert ( clock.comparePartial(newerClock) == PartialOrder.LeftOlder, (clock, newerClock) )
-      assert ( newerClock.comparePartial(clock) == PartialOrder.RightOlder, (newerClock, clock) )
+      withClue("comparing ${clock} to {$newClock}:") {
+        assert {
+          clock.comparePartial(newerClock) == PartialOrder.LeftOlder
+        }
+      }
+
+      withClue("comparing ${newClock} to ${clock}:") {
+        assert {
+          newerClock.comparePartial(clock) == PartialOrder.RightOlder
+        }
+      }
     }
   }
 
@@ -38,14 +59,35 @@ class ClockTest extends BaseTest {
     forAll { (clock: Clock, leftExtra: Tick, rightExtra: Tick) =>
       whenever(leftExtra != rightExtra) {
 
-        val left = clock.tick(leftExtra.atNode)
-        val right = clock.tick(rightExtra.atNode)
+        val left = clock.advanceAt(leftExtra.atNode)
+        val right = clock.advanceAt(rightExtra.atNode)
 
-        assert ( left.comparePartial(right) == PartialOrder.Concurrent, (left, right) )
+        withClue(s"the clocks are ${left} and ${right}:") {
+          assert {
+            left.comparePartial(right) == PartialOrder.Concurrent
+          }
+        }
       }
     }
   }
 
+  property("chooses the higher tick count per node from two merged clocks") {
+    forAll { (first: Clock, second: Clock) =>
+      whenever(first.comparePartial(second) == PartialOrder.Concurrent) {
+
+        val merged = first.merge(second)
+        val nodes = first.toMap.keySet ++ second.toMap.keySet
+
+        nodes.foreach { node =>
+          withClue("at ${node}:") {
+            assert {
+              Math.max(first.ticksAt(node), second.ticksAt(node)) == merged.ticksAt(node)
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 object ClockTest {
@@ -61,7 +103,7 @@ object ClockTest {
   }
 
   private def step(clock: Clock, tick: Tick): Clock = {
-    clock.tick(tick.atNode)
+    clock.advanceAt(tick.atNode)
   }
 
   implicit lazy val arbitraryClock: Arbitrary[Clock] = {
