@@ -1,4 +1,4 @@
-package com.github.szabba.todomvc.replicated.model
+package com.github.szabba.todomvc.replicated.crdt
 
 sealed trait PartialOrder
 

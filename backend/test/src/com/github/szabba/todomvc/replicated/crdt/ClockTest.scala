@@ -1,4 +1,4 @@
-package com.github.szabba.todomvc.replicated.model
+package com.github.szabba.todomvc.replicated.crdt
 
 import com.github.szabba.todomvc.replicated.BaseTest
 import org.scalacheck.Arbitrary
