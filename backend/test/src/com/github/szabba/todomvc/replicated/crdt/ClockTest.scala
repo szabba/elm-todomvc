@@ -1,14 +1,14 @@
 package com.github.szabba.todomvc.replicated.crdt
 
+import com.github.szabba.todomvc.replicated.Arbitraries
+import com.github.szabba.todomvc.replicated.Arbitraries.nodeID
 import com.github.szabba.todomvc.replicated.algebra.{JoinSemilattice, JoinSemilatticeTest}
 import org.scalacheck.Arbitrary
 
 class ClockTest extends JoinSemilatticeTest[Clock] {
 
   override val joinSemilattice: JoinSemilattice[Clock] = Clock.joinSemilattice
-  override implicit val arb: Arbitrary[Clock] = ClockTest.arbitraryClock
-
-  import ClockTest.{Tick, arbitraryTick}
+  override implicit val arb: Arbitrary[Clock] = Arbitraries.clock
 
   property("empty clock converts to an empty map") {
     assert {
@@ -38,8 +38,8 @@ class ClockTest extends JoinSemilatticeTest[Clock] {
   }
 
   property("clock with an extra tick is the newer of two") {
-    forAll { (clock: Clock, extraTick: Tick) =>
-      val newerClock = clock.advanceAt(extraTick.atNode)
+    forAll { (clock: Clock, extraTickAt: NodeID) =>
+      val newerClock = clock.advanceAt(extraTickAt)
 
       withClue("comparing ${clock} to {$newClock}:") {
         assert {
@@ -56,11 +56,11 @@ class ClockTest extends JoinSemilatticeTest[Clock] {
   }
 
   property("clocks with extra ticks at different nodes are concurrent") {
-    forAll { (clock: Clock, leftExtra: Tick, rightExtra: Tick) =>
-      whenever(leftExtra != rightExtra) {
+    forAll { (clock: Clock, leftExtraAt: NodeID, rightExtraAt: NodeID) =>
+      whenever(leftExtraAt != rightExtraAt) {
 
-        val left = clock.advanceAt(leftExtra.atNode)
-        val right = clock.advanceAt(rightExtra.atNode)
+        val left = clock.advanceAt(leftExtraAt)
+        val right = clock.advanceAt(rightExtraAt)
 
         withClue(s"the clocks are ${left} and ${right}:") {
           assert {
@@ -87,36 +87,5 @@ class ClockTest extends JoinSemilatticeTest[Clock] {
         }
       }
     }
-  }
-}
-
-object ClockTest {
-
-  case class Tick(atNode: NodeID)
-
-  def run(tickSequence: List[Tick]): Clock = {
-    run(Clock.empty, tickSequence)
-  }
-
-  def run(start: Clock, extraTicks: List[Tick]): Clock = {
-    extraTicks.foldLeft(start)(step(_, _))
-  }
-
-  private def step(clock: Clock, tick: Tick): Clock = {
-    clock.advanceAt(tick.atNode)
-  }
-
-  implicit lazy val arbitraryClock: Arbitrary[Clock] = {
-    val gen = Arbitrary.arbitrary[List[Tick]].map(run)
-    Arbitrary(gen)
-  }
-
-  implicit lazy val arbitraryTick: Arbitrary[Tick] = {
-    val gen = Arbitrary.arbitrary[Int]
-      .map(Math.abs)
-      .map(_.toString)
-      .map(NodeID)
-      .map(Tick)
-    Arbitrary(gen)
   }
 }
