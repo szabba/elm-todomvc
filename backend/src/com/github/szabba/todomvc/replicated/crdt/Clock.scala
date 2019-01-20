@@ -36,12 +36,12 @@ case class Clock private (private val rawTicks: Map[String, Int]) {
 
   def merge(other: Clock): Clock = {
     def higherTicks(node: String): (String, Int) = {
-      val local = this.rawTicks.getOrElse(node, 0)
+      val local = rawTicks.getOrElse(node, 0)
       val remote = other.rawTicks.getOrElse(node, 0)
       (node, Math.max(local, remote))
     }
 
-    val nodes = this.rawTicks.keySet ++ other.rawTicks.keySet
+    val nodes = rawTicks.keySet ++ other.rawTicks.keySet
     val newRawTicks = nodes.map(higherTicks).toMap
     Clock(newRawTicks)
   }

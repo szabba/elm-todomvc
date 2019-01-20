@@ -15,17 +15,17 @@ case class Register[A] private (private val valuesAt: Map[Clock, Set[A]]) {
   def set(atNode: NodeID, a: A): Register[A] = {
     val tickedClock = clock.advanceAt(atNode)
     val newValuesAt = Map(tickedClock -> Set(a))
-    this.copy(valuesAt = newValuesAt)
+    copy(valuesAt = newValuesAt)
   }
 
   def merge(other: Register[A]): Register[A] = {
     def mergedValues(at: Clock): Set[A] = {
-      val local = this.valuesAt.getOrElse(at, Set.empty)
+      val local = valuesAt.getOrElse(at, Set.empty)
       val remote = other.valuesAt.getOrElse(at, Set.empty)
       local ++ remote
     }
 
-    val clocks = this.valuesAt.keySet ++ other.valuesAt.keySet
+    val clocks = valuesAt.keySet ++ other.valuesAt.keySet
     val clocksToDrop = for {
       dropCandidate <- clocks
       otherClock <- clocks
