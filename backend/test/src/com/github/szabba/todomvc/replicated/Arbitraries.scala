@@ -1,8 +1,10 @@
 package com.github.szabba.todomvc.replicated
 
+import com.github.szabba.todomvc.replicated.Arbitraries.TodoListOp
 import com.github.szabba.todomvc.replicated.Arbitraries.TodoOp.{Complete, SetText}
 import com.github.szabba.todomvc.replicated.crdt.{Clock, NodeID, Register}
-import com.github.szabba.todomvc.replicated.model.Todo
+import com.github.szabba.todomvc.replicated.model.TodoList.TodoID
+import com.github.szabba.todomvc.replicated.model.{Todo, TodoList}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -12,8 +14,9 @@ object Arbitraries {
     Arbitrary {
       arbitrary[Int]
         .map(_.toString)
-        .map(NodeID)
+        .map(NodeID(_))
     }
+
 
   implicit val clock: Arbitrary[Clock] = {
 
@@ -74,5 +77,71 @@ object Arbitraries {
       }
 
     Arbitrary(arbitrary[List[TodoOp]].map(run))
+  }
+
+  implicit val todoID: Arbitrary[TodoID] =
+    Arbitrary {
+      for {
+        nodeID <- arbitrary[NodeID]
+        anyNo <- arbitrary[Int]
+        no = Math.min(1, Math.abs(anyNo))
+      } yield {
+        TodoID(nodeID, no)
+      }
+    }
+
+  object TodoListOp {
+    case class Add(atNode: NodeID, todo: Todo) extends TodoListOp
+    case class Update(todoID: TodoID, op: TodoOp) extends TodoListOp
+    case class Delete(todoID: TodoID) extends TodoListOp
+
+    implicit val add: Arbitrary[Add] =
+      Arbitrary {
+        for {
+          atNode <- arbitrary[NodeID]
+          todo <- arbitrary[Todo]
+        } yield {
+          Add(atNode, todo)
+        }
+      }
+
+    implicit val update: Arbitrary[Update] =
+      Arbitrary {
+        for {
+          todoID <- arbitrary[TodoID]
+          op <- arbitrary[TodoOp]
+        } yield {
+          Update(todoID, op)
+        }
+      }
+
+    implicit val delete: Arbitrary[Delete] =
+      Arbitrary(arbitrary[TodoID].map(Delete))
+
+    implicit val operation: Arbitrary[TodoListOp] =
+      Arbitrary(
+        Gen.oneOf(
+          arbitrary[Add],
+          arbitrary[Update],
+          arbitrary[Delete]))
+  }
+
+  sealed trait TodoListOp {
+    def step(todoList: TodoList): TodoList =
+      this match {
+        case TodoListOp.Add(atNode, todo) => todoList.add(atNode, todo)._2
+        case TodoListOp.Update(todoID, op) => todoList.update(todoID, op.step)
+        case TodoListOp.Delete(todoID) => todoList.delete(todoID)
+      }
+  }
+
+  val todoList: Arbitrary[TodoList] = {
+
+    def run(ops: List[TodoListOp]): TodoList =
+      ops.foldLeft(TodoList.empty) {
+        (todoList, op) => op.step(todoList)
+      }
+
+    Arbitrary(arbitrary[List[TodoListOp]].map(run))
   }
 }
