@@ -1,6 +1,7 @@
 package com.github.szabba.todomvc.replicated.crdt
 
 import com.github.szabba.todomvc.replicated.algebra.JoinSemilattice
+import io.circe.{Decoder, Encoder}
 
 case class Register[A] private (private val valuesAt: Map[Clock, Set[A]]) {
 
@@ -41,6 +42,12 @@ object Register {
   def empty[A]: Register[A] = {
     Register(Map.empty)
   }
+
+  implicit def encoder[A: Encoder]: Encoder[Register[A]] =
+    Encoder.encodeMap[Clock, Set[A]].contramap(_.valuesAt)
+
+  implicit def decoder[A: Decoder]: Decoder[Register[A]] =
+    Decoder.decodeMap[Clock, Set[A]].map(apply)
 
   def joinSemilattice[A]: JoinSemilattice[Register[A]] = { (left, right) =>
     left.merge(right)

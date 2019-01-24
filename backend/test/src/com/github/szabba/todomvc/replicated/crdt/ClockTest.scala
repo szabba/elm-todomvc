@@ -88,4 +88,21 @@ class ClockTest extends JoinSemilatticeTest[Clock] {
       }
     }
   }
+
+  property("toMap.compose(Clock.fromMap) is an identity operation") {
+    forAll { clock: Clock =>
+      assert {
+        Clock.fromMap(clock.toMap) == clock
+      }
+    }
+  }
+
+  property("Clock.fromMap skips negative tick counts") {
+    forAll { map: Map[NodeID, Int] =>
+      val negatives = Clock.fromMap(map).toMap.values.filter(_ < 0)
+      assert {
+        negatives.isEmpty
+      }
+    }
+  }
 }

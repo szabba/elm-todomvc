@@ -1,6 +1,8 @@
 package com.github.szabba.todomvc.replicated.crdt
 
 import com.github.szabba.todomvc.replicated.algebra.JoinSemilattice
+import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
+import io.circe.syntax._
 
 case class Clock private (private val rawTicks: Map[String, Int]) {
 
@@ -54,6 +56,28 @@ case class Clock private (private val rawTicks: Map[String, Int]) {
 
 object Clock {
   val empty: Clock = Clock(Map.empty)
+
+  def fromMap(raw: Map[NodeID, Int]): Clock = {
+    val ticks =
+      raw.filter(_._2 >= 0).map { case (id, v) => (id.rawID, v) }
+    Clock(ticks)
+  }
+
+  implicit val encoder: Encoder[Clock] =
+    Encoder.encodeMap[NodeID, Int].contramap(_.toMap)
+
+  implicit val decoder: Decoder[Clock] =
+    Decoder.decodeMap[NodeID, Int].map(fromMap)
+
+  implicit val keyEncoder: KeyEncoder[Clock] =
+    KeyEncoder.encodeKeyString.contramap(_.asJson.toString)
+
+  implicit val keyDecoder: KeyDecoder[Clock] = new KeyDecoder[Clock] {
+    import io.circe.parser._
+    override def apply(key: String): Option[Clock] = {
+      parse(key).toOption.flatMap(decoder.decodeJson(_).toOption)
+    }
+  }
 
   val joinSemilattice: JoinSemilattice[Clock] = { (left, right) =>
     left.merge(right)
